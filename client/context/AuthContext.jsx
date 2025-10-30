@@ -22,7 +22,6 @@ export const AuthProvider = ({ children }) => {
         connectSocket(data.user);
       }
     } catch (error) {
-      console.log(error);
       toast.error(error.message)
     }
   }
@@ -47,13 +46,18 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
+    // Disconnect socket first
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
+    
     localStorage.removeItem("token");
     setToken(null);
     setAuthUser(null);
     setOnlineUsers([]);
     axios.defaults.headers.common["token"] = null;
     toast.success("Logged out Successfully");
-    if (socket) socket.disconnect();
   }
 
 
@@ -71,22 +75,37 @@ export const AuthProvider = ({ children }) => {
   }
 
   //connect socket function to handle socket connection
-
   const connectSocket = (userData) => {
-    if (!userData || socket?.connected) return;
+    if (!userData) return;
+    
+    // Disconnect existing socket if any
+    if (socket) {
+      socket.disconnect();
+    }
 
+    if (!backendUrl) {
+      toast.error("Connection error: Backend URL not configured");
+      return;
+    }
+    
     const newSocket = io(backendUrl, {
       query: {
         userId: userData._id,
+      },
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      forceNew: true,
+    });
 
-      }
-    })
-    newSocket.connect();
-    setSocket(newSocket);
+    newSocket.on("connect_error", (error) => {
+      toast.error("Connection failed. Please check your internet connection.");
+    });
 
     newSocket.on("getOnlineUsers", (userIds) => {
-      setOnlineUsers(userIds)
-    })
+      setOnlineUsers(userIds || []);
+    });
+
+    setSocket(newSocket);
   }
 
   useEffect(() => {
@@ -94,7 +113,29 @@ export const AuthProvider = ({ children }) => {
       axios.defaults.headers.common["token"] = token;
     }
     checkAuth();
+    
+    // Cleanup function
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
   }, [])
+
+  // Handle socket reconnection on network issues
+  useEffect(() => {
+    if (socket && authUser) {
+      const handleReconnect = () => {
+        socket.emit("userOnline", authUser._id);
+      };
+
+      socket.on("reconnect", handleReconnect);
+      
+      return () => {
+        socket.off("reconnect", handleReconnect);
+      };
+    }
+  }, [socket, authUser])
 
   const value = {
     axios,

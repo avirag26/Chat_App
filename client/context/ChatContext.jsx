@@ -26,7 +26,6 @@ export const ChatProvider = ({ children }) => {
 
             }
         } catch (error) {
-            console.log(error.message);
             toast.error(error.message)
         }
     }
@@ -40,7 +39,6 @@ export const ChatProvider = ({ children }) => {
                 setMessages(data.messages)
             }
         } catch (error) {
-            console.log(error.message);
             toast.error(error.message)
         }
     }

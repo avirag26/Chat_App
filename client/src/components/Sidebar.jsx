@@ -21,6 +21,17 @@ const Sidebar = () => {
     getUser();
   }, [onlineUsers])
 
+  // Periodic refresh of user list to ensure online status is current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (user && user.length > 0) {
+        getUser();
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [user])
+
   const sortedUsers = [...filteredUsers].sort((a, b) => {
     const aOnline = onlineUsers?.includes(a._id);
     const bOnline = onlineUsers?.includes(b._id);
